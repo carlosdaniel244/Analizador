@@ -1,4 +1,4 @@
-# Analizador Final Hecho en .C Reflejado en Html/Pagina Web
+# Analizador Final 
 
 LENGUAJES Y AUTOMATAS II
 GRUPO: 6N1
