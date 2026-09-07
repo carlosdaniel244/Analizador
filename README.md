@@ -5,10 +5,10 @@ GRUPO: 6N1
 DOCENTE:ECHEVERRIA RODRIGEZ CESAR OSVALDO
 FECHA: 8/09/2026
 
-# Nombres del grupo:
+# Nombres de Equipo:
 Carlos Daniel Guzmán Morales
 Jaqueline Hernandez Patricio
 MONSERRAT AURORA ABIGAIL VACA QUEROL
 
-# Numero de equipo:
+# Numero de Equipo:
 5?
