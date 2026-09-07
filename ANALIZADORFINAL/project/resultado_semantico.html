@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Analizador Semantico - Procesador 8086</title>
+<style>
+  header h1 {
+    background: linear-gradient(135deg, #f59e0b, #f97316);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .section-title { color: #f59e0b; }
+  .stat-ok  .num { color: #34d399; }
+  .stat-adv .num { color: #fbbf24; }
+  .stat-err .num { color: #f87171; }
+  .stat-tot .num { color: #c084fc; }
+  .badge-ok  {
+    display: inline-block; padding: 0.2rem 0.6rem;
+    border-radius: 4px; font-size: 0.8rem; font-weight: 600;
+    background: rgba(52,211,153,0.15); color: #34d399;
+    border: 1px solid rgba(52,211,153,0.3);
+  }
+  .badge-adv {
+    display: inline-block; padding: 0.2rem 0.6rem;
+    border-radius: 4px; font-size: 0.8rem; font-weight: 600;
+    background: rgba(251,191,36,0.15); color: #fbbf24;
+    border: 1px solid rgba(251,191,36,0.3);
+  }
+  .badge-err {
+    display: inline-block; padding: 0.2rem 0.6rem;
+    border-radius: 4px; font-size: 0.8rem; font-weight: 600;
+    background: rgba(248,113,113,0.15); color: #f87171;
+    border: 1px solid rgba(248,113,113,0.3);
+  }
+  .instr { font-family: 'Courier New', monospace; color: #cbd5e1; }
+  .desc-ok  { color: #94a3b8; }
+  .desc-adv { color: #fbbf24; }
+  .desc-err { color: #f87171; }
+  .grammar-box .prod { color: #f59e0b; }
+  .btn { background: linear-gradient(135deg, #f59e0b, #f97316); }
+  .textarea-box:focus { border-color: #f59e0b; }
+  .nav-link.sem { background: #f59e0b; color: #fff; border-color: #f59e0b; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: #0f172a;
+    color: #e2e8f0;
+    min-height: 100vh;
+    padding: 2rem 1rem;
+  }
+  .container { max-width: 960px; margin: 0 auto; }
+  header { text-align: center; margin-bottom: 2rem; }
+  header h1 {
+    font-size: 2rem; font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+  header p { color: #94a3b8; font-size: 0.95rem; }
+  .section { margin-bottom: 2rem; }
+  .section-title {
+    font-size: 1.1rem; font-weight: 600;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #1e293b;
+  }
+  .input-box {
+    background: #1e293b; border: 1px solid #334155;
+    border-radius: 8px; padding: 1.25rem;
+    font-family: 'Courier New', monospace;
+    font-size: 0.95rem; line-height: 1.8;
+    white-space: pre-wrap; color: #cbd5e1;
+  }
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 1rem; margin-bottom: 2rem;
+  }
+  .stat-card {
+    background: #1e293b; border: 1px solid #334155;
+    border-radius: 8px; padding: 1rem;
+    text-align: center;
+  }
+  .stat-card .num { font-size: 1.8rem; font-weight: 700; }
+  .stat-card .lbl {
+    font-size: 0.75rem; color: #94a3b8;
+    text-transform: uppercase; letter-spacing: 0.05em;
+    margin-top: 0.25rem;
+  }
+  table {
+    width: 100%%; border-collapse: collapse;
+    background: #1e293b;
+    border-radius: 8px; overflow: hidden;
+    border: 1px solid #334155;
+  }
+  th {
+    background: #334155; color: #e2e8f0;
+    padding: 0.75rem 1rem; text-align: left;
+    font-size: 0.85rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  td {
+    padding: 0.6rem 1rem;
+    border-bottom: 1px solid #1e293b;
+    font-size: 0.9rem;
+  }
+  tr:hover td { background: #283548; }
+  .badge {
+    display: inline-block; padding: 0.2rem 0.6rem;
+    border-radius: 4px; font-size: 0.8rem;
+    font-weight: 600; white-space: nowrap;
+  }
+  .lexema {
+    font-family: 'Courier New', monospace;
+    color: #cbd5e1;
+  }
+  .linea { color: #64748b; font-weight: 600; }
+  footer {
+    text-align: center; color: #475569;
+    font-size: 0.8rem; margin-top: 2rem;
+  }
+  .textarea-box {
+    width: 100%%; min-height: 180px;
+    background: #1e293b; border: 1px solid #334155;
+    border-radius: 8px; padding: 1rem;
+    font-family: 'Courier New', monospace;
+    font-size: 0.95rem; line-height: 1.6;
+    color: #e2e8f0; resize: vertical; outline: none;
+  }
+  .btn {
+    color: #fff; border: none; border-radius: 8px;
+    padding: 0.7rem 2rem; font-size: 1rem; font-weight: 600;
+    cursor: pointer; margin-top: 1rem; transition: opacity 0.2s;
+  }
+  .btn:hover { opacity: 0.85; }
+  .btn:active { transform: scale(0.97); }
+  .btn-limpiar { background: #334155; margin-left: 0.5rem; }
+  .btn-limpiar:hover { background: #3e4b66; }
+  .result-area { margin-top: 1.5rem; }
+  .hint { color: #64748b; font-size: 0.85rem; margin-top: 0.5rem; }
+  .nav-links { margin-bottom: 1rem; }
+  .nav-link {
+    display: inline-block; text-decoration: none;
+    font-size: 0.9rem; margin-right: 1rem;
+    padding: 0.3rem 0.8rem; border-radius: 6px;
+    border: 1px solid #334155; background: #1e293b;
+  }
+  .nav-link:hover { background: #283548; }
+  .grammar-box {
+    background: #1e293b; border: 1px solid #334155;
+    border-radius: 8px; padding: 1.25rem;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem; line-height: 1.8; color: #cbd5e1;
+  }
+  .grammar-box .prod { font-weight: 600; }
+  .grammar-box .term { color: #38bdf8; }
+  @media (max-width: 640px) {
+    header h1 { font-size: 1.5rem; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    th, td { padding: 0.5rem 0.6rem; font-size: 0.8rem; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Analizador Semantico - Procesador 8086</h1>
+    <p>Bloque estatico predefinido</p>
+  </header>
+  <div class="nav-links">
+    <a class="nav-link" href="resultado_lexico.html">Lexico</a>
+    <a class="nav-link" href="resultado_sintactico.html">Sintactico</a>
+    <a class="nav-link sem" href="#">Semantico</a>
+  </div>
+  <div class="section">
+    <div class="section-title">Codigo de Entrada</div>
+    <div class="input-box">ADD AL, BH
+SUB AH, BL
+INC AL 
+DEC BH
+ADD BL, CH
+SUB CH, DL 
+INC DL
+DEC AL
+ADD AH, BL
+SUB BL, AL
+</div>
+  </div>
+  <div class="section">
+    <div class="section-title">Reglas Semanticas</div>
+    <div class="grammar-box">
+      <span class="prod">1. Compatibilidad de tipos:</span> ambos operandos de ADD/SUB deben ser registros de 8 bits<br>
+      <span class="prod">2. Auto-modificacion:</span> se advierte si el registro origen y destino son el mismo (ej: ADD AL, AL)<br>
+      <span class="prod">3. Registro no inicializado:</span> se advierte si un registro se lee antes de ser escrito<br>
+      <span class="prod">4. Escritura sin uso:</span> se reporta si un registro se modifica pero no se vuelve a leer<br>
+      <span class="prod">5. Seguimiento de registros:</span> AL, AH, BL, BH, CL, CH, DL, DH <span class="term">(8 bits)</span>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title">Resumen del Analisis</div>
+    <div class="stats">
+      <div class="stat-card stat-ok"><div class="num">6</div><div class="lbl">Correctas</div></div>
+      <div class="stat-card stat-adv"><div class="num">4</div><div class="lbl">Advertencias</div></div>
+      <div class="stat-card stat-err"><div class="num">0</div><div class="lbl">Errores</div></div>
+      <div class="stat-card stat-tot"><div class="num">10</div><div class="lbl">Total Lineas</div></div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title">Tabla de Resultados Semanticos</div>
+    <table>
+      <thead>
+        <tr><th>Linea</th><th>Nivel</th><th>Instruccion</th><th>Descripcion</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="linea">1</td><td><span class="badge-adv">ADVERTENCIA</span></td><td class="instr">ADD AL , BH</td><td class="desc-adv">Tipos compatibles: ambos operandos son registros de 8 bits. ADVERTENCIA: el registro origen BH no ha sido inicializado</td></tr>
+        <tr><td class="linea">2</td><td><span class="badge-adv">ADVERTENCIA</span></td><td class="instr">SUB AH , BL</td><td class="desc-adv">Tipos compatibles: ambos operandos son registros de 8 bits. ADVERTENCIA: el registro origen BL no ha sido inicializado</td></tr>
+        <tr><td class="linea">3</td><td><span class="badge-ok">OK</span></td><td class="instr">INC AL</td><td class="desc-ok">Tipos compatibles: operando es registro de 8 bits</td></tr>
+        <tr><td class="linea">4</td><td><span class="badge-ok">OK</span></td><td class="instr">DEC BH</td><td class="desc-ok">Tipos compatibles: operando es registro de 8 bits</td></tr>
+        <tr><td class="linea">5</td><td><span class="badge-adv">ADVERTENCIA</span></td><td class="instr">ADD BL , CH</td><td class="desc-adv">Tipos compatibles: ambos operandos son registros de 8 bits. ADVERTENCIA: el registro origen CH no ha sido inicializado</td></tr>
+        <tr><td class="linea">6</td><td><span class="badge-adv">ADVERTENCIA</span></td><td class="instr">SUB CH , DL</td><td class="desc-adv">Tipos compatibles: ambos operandos son registros de 8 bits. ADVERTENCIA: el registro origen DL no ha sido inicializado</td></tr>
+        <tr><td class="linea">7</td><td><span class="badge-ok">OK</span></td><td class="instr">INC DL</td><td class="desc-ok">Tipos compatibles: operando es registro de 8 bits</td></tr>
+        <tr><td class="linea">8</td><td><span class="badge-ok">OK</span></td><td class="instr">DEC AL</td><td class="desc-ok">Tipos compatibles: operando es registro de 8 bits</td></tr>
+        <tr><td class="linea">9</td><td><span class="badge-ok">OK</span></td><td class="instr">ADD AH , BL</td><td class="desc-ok">Tipos compatibles: ambos operandos son registros de 8 bits</td></tr>
+        <tr><td class="linea">10</td><td><span class="badge-ok">OK</span></td><td class="instr">SUB BL , AL</td><td class="desc-ok">Tipos compatibles: ambos operandos son registros de 8 bits</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="section">
+    <div class="section-title">Modo Personalizado - Escriba su propio bloque</div>
+    <p class="hint">Escriba instrucciones validas (ADD, SUB, INC, DEC con registros de 8 bits) para ver el analisis semantico.</p>
+    <textarea class="textarea-box" id="entradaUsuario" placeholder="Ej: ADD AL, BH"></textarea>
+    <div>
+      <button class="btn" onclick="ejecutarSemantico()">Analizar Semantica</button>
+      <button class="btn btn-limpiar" onclick="limpiar()">Limpiar</button>
+    </div>
+    <div class="result-area" id="resultadoUsuario">
+      <p class="hint">Presione "Analizar Semantica" para ver los resultados.</p>
+    </div>
+  </div>
+  <footer>Analizador Semantico 8086 - Generado automaticamente desde C</footer>
+</div>
+<script>
+const instrucciones = ['ADD','SUB','INC','DEC'];
+const registros8 = ['AL','AH','BL','BH','CL','CH','DL','DH'];
+const nombreTipoToken = ['INSTRUCCION','REGISTRO 8 BITS','COMA','ESPACIO','DESCONOCIDO','FIN DE LINEA'];
+const claseCss = ['tok-inst','tok-reg','tok-coma','tok-esp','tok-unk','tok-fin'];
+
+function esInstruccion(p) { return instrucciones.indexOf(p) !== -1; }
+function esRegistro8(p) { return registros8.indexOf(p) !== -1; }
+function esLetra(c) { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'); }
+function escaparHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function analizarLexico(entrada) {
+    const tokens = [];
+    let i = 0, linea = 1;
+    let estado = 0;
+    let palabra = '', palLen = 0;
+    while (i < entrada.length) {
+        const c = entrada[i];
+        if (estado === 0) {
+            if (c === ' ' || c === '\t') {
+                tokens.push({tipo:3, lexema:' ', linea:linea});
+            } else if (c === ',') {
+                tokens.push({tipo:2, lexema:',', linea:linea});
+            } else if (c === '\n') {
+                tokens.push({tipo:5, lexema:'\\n', linea:linea});
+                linea++;
+            } else if (c === '\r') {
+            } else if (esLetra(c)) {
+                palabra = c.toUpperCase(); palLen = 1; estado = 1;
+            } else {
+                const hex = c.charCodeAt(0).toString(16).toUpperCase().padStart(2,'0');
+                tokens.push({tipo:4, lexema:"'" + c + "' (0x" + hex + ")", linea:linea});
+            }
+        } else {
+            if (esLetra(c)) {
+                if (palLen < 31) { palabra += c.toUpperCase(); palLen++; }
+            } else {
+                let tipo;
+                if (esInstruccion(palabra)) tipo = 0;
+                else if (esRegistro8(palabra)) tipo = 1;
+                else tipo = 4;
+                tokens.push({tipo:tipo, lexema:palabra, linea:linea});
+                estado = 0; i--;
+            }
+        }
+        i++;
+    }
+    if (estado === 1) {
+        let tipo;
+        if (esInstruccion(palabra)) tipo = 0;
+        else if (esRegistro8(palabra)) tipo = 1;
+        else tipo = 4;
+        tokens.push({tipo:tipo, lexema:palabra, linea:linea});
+    }
+    return tokens;
+}
+function analizarSintactico(tokens) {
+    const resultados = [];
+    let k = 0;
+    while (k < tokens.length) {
+        const lineaActual = tokens[k].linea;
+        const sig = [];
+        while (k < tokens.length && tokens[k].linea === lineaActual) {
+            if (tokens[k].tipo !== 3 && tokens[k].tipo !== 5) sig.push(tokens[k]);
+            k++;
+        }
+        let instr = '';
+        for (let j = 0; j < sig.length; j++) {
+            if (j > 0) instr += ' ';
+            instr += sig[j].lexema;
+        }
+        let correcto = false, mensaje = '';
+        if (sig.length === 0) { mensaje = 'Linea vacia'; }
+        else if (sig[0].tipo !== 0) { mensaje = 'No es instruccion'; }
+        else if (sig[0].lexema === 'ADD' || sig[0].lexema === 'SUB') {
+            if (sig.length !== 4) { mensaje = 'Error sintactico'; }
+            else if (sig[1].tipo !== 1 || sig[2].tipo !== 2 || sig[3].tipo !== 1) { mensaje = 'Error sintactico'; }
+            else { correcto = true; }
+        } else if (sig[0].lexema === 'INC' || sig[0].lexema === 'DEC') {
+            if (sig.length !== 2 || sig[1].tipo !== 1) { mensaje = 'Error sintactico'; }
+            else { correcto = true; }
+        } else { mensaje = 'Instruccion no reconocida'; }
+        resultados.push({linea:lineaActual, correcto:correcto, mensaje:mensaje, instruccion:instr, tokens:sig});
+    }
+    return resultados;
+}
+
+function analizarSemantico(tokens) {
+    const sintactico = analizarSintactico(tokens);
+    const resultados = [];
+    const regUsado = {};
+    const regEscrito = {};
+    const regLeido = {};
+    for (let j = 0; j < sintactico.length; j++) {
+        const s = sintactico[j];
+        if (!s.correcto) {
+            resultados.push({linea:s.linea, nivel:2, tipo:'ERROR', mensaje:'Error sintactico - no se puede analizar', instruccion:s.instruccion});
+            continue;
+        }
+        const sig = s.tokens;
+        let nivel = 0, tipo = 'OK', msg = '';
+        if (sig[0].lexema === 'ADD' || sig[0].lexema === 'SUB') {
+            const rDest = sig[1].lexema;
+            const rSrc = sig[3].lexema;
+            msg = 'Tipos compatibles: ambos operandos son registros de 8 bits';
+            if (!regUsado[rSrc]) {
+                msg += '. ADVERTENCIA: el registro origen ' + rSrc + ' no ha sido inicializado';
+                nivel = 1; tipo = 'ADVERTENCIA';
+            }
+            if (rDest === rSrc) {
+                msg += '. ADVERTENCIA: auto-modificacion (' + rDest + ' como origen y destino)';
+                nivel = 1; tipo = 'ADVERTENCIA';
+            }
+            regUsado[rDest] = true; regUsado[rSrc] = true;
+            regEscrito[rDest] = s.linea; regLeido[rSrc] = s.linea;
+        } else if (sig[0].lexema === 'INC' || sig[0].lexema === 'DEC') {
+            const rDest = sig[1].lexema;
+            msg = 'Tipos compatibles: operando es registro de 8 bits';
+            if (!regUsado[rDest]) {
+                msg += '. NOTA: el registro ' + rDest + ' se modifica por primera vez (valor previo desconocido)';
+            }
+            regUsado[rDest] = true;
+            regEscrito[rDest] = s.linea;
+        }
+        resultados.push({linea:s.linea, nivel:nivel, tipo:tipo, mensaje:msg, instruccion:s.instruccion});
+    }
+    return resultados;
+}
+
+function ejecutarSemantico() {
+    const texto = document.getElementById('entradaUsuario').value;
+    const tokens = analizarLexico(texto);
+    const resultados = analizarSemantico(tokens);
+    const cont = document.getElementById('resultadoUsuario');
+    if (resultados.length === 0) {
+        cont.innerHTML = '<p class="hint">No se encontraron lineas.</p>';
+        return;
+    }
+    let ok = 0, adv = 0, err = 0;
+    for (let j = 0; j < resultados.length; j++) {
+        if (resultados[j].nivel === 0) ok++;
+        else if (resultados[j].nivel === 1) adv++;
+        else err++;
+    }
+    let html = '<div class="section"><div class="section-title">Resumen</div>';
+    html += '<div class="stats">';
+    html += '<div class="stat-card stat-ok"><div class="num">' + ok + '</div><div class="lbl">Correctas</div></div>';
+    html += '<div class="stat-card stat-adv"><div class="num">' + adv + '</div><div class="lbl">Advertencias</div></div>';
+    html += '<div class="stat-card stat-err"><div class="num">' + err + '</div><div class="lbl">Errores</div></div>';
+    html += '<div class="stat-card stat-tot"><div class="num">' + resultados.length + '</div><div class="lbl">Total</div></div>';
+    html += '</div></div>';
+    html += '<div class="section"><div class="section-title">Resultados Semanticos</div>';
+    html += '<table><thead><tr><th>Linea</th><th>Nivel</th><th>Instruccion</th><th>Descripcion</th></tr></thead><tbody>';
+    for (let j = 0; j < resultados.length; j++) {
+        const r = resultados[j];
+        const cls = r.nivel === 0 ? 'ok' : r.nivel === 1 ? 'adv' : 'err';
+        html += '<tr><td class="linea">' + r.linea + '</td>';
+        html += '<td><span class="badge-' + cls + '">' + r.tipo + '</span></td>';
+        html += '<td class="instr">' + escaparHtml(r.instruccion) + '</td>';
+        html += '<td class="desc-' + cls + '">' + escaparHtml(r.mensaje) + '</td></tr>';
+    }
+    html += '</tbody></table></div>';
+    cont.innerHTML = html;
+}
+function limpiar() {
+    document.getElementById('entradaUsuario').value = '';
+    document.getElementById('resultadoUsuario').innerHTML = '<p class="hint">Presione \"Analizar Semantica\" para ver los resultados.</p>';
+}
+</script>
+</body>
+</html>

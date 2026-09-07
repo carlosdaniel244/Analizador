@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Analizador Sintactico - Procesador 8086</title>
+<style>
+  header h1 {
+    background: linear-gradient(135deg, #34d399, #10b981);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .section-title { color: #34d399; }
+  .stat-ok  .num { color: #34d399; }
+  .stat-err .num { color: #f87171; }
+  .stat-tot .num { color: #c084fc; }
+  .badge-ok {
+    display: inline-block; padding: 0.2rem 0.6rem;
+    border-radius: 4px; font-size: 0.8rem; font-weight: 600;
+    background: rgba(52,211,153,0.15); color: #34d399;
+    border: 1px solid rgba(52,211,153,0.3);
+  }
+  .badge-err {
+    display: inline-block; padding: 0.2rem 0.6rem;
+    border-radius: 4px; font-size: 0.8rem; font-weight: 600;
+    background: rgba(248,113,113,0.15); color: #f87171;
+    border: 1px solid rgba(248,113,113,0.3);
+  }
+  .instr { font-family: 'Courier New', monospace; color: #cbd5e1; }
+  .desc-ok  { color: #94a3b8; }
+  .desc-err { color: #f87171; }
+  .grammar-box .prod { color: #34d399; }
+  .btn { background: linear-gradient(135deg, #10b981, #34d399); }
+  .textarea-box:focus { border-color: #34d399; }
+  .nav-link.sint { background: #10b981; color: #fff; border-color: #10b981; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: #0f172a;
+    color: #e2e8f0;
+    min-height: 100vh;
+    padding: 2rem 1rem;
+  }
+  .container { max-width: 960px; margin: 0 auto; }
+  header { text-align: center; margin-bottom: 2rem; }
+  header h1 {
+    font-size: 2rem; font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+  header p { color: #94a3b8; font-size: 0.95rem; }
+  .section { margin-bottom: 2rem; }
+  .section-title {
+    font-size: 1.1rem; font-weight: 600;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #1e293b;
+  }
+  .input-box {
+    background: #1e293b; border: 1px solid #334155;
+    border-radius: 8px; padding: 1.25rem;
+    font-family: 'Courier New', monospace;
+    font-size: 0.95rem; line-height: 1.8;
+    white-space: pre-wrap; color: #cbd5e1;
+  }
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 1rem; margin-bottom: 2rem;
+  }
+  .stat-card {
+    background: #1e293b; border: 1px solid #334155;
+    border-radius: 8px; padding: 1rem;
+    text-align: center;
+  }
+  .stat-card .num { font-size: 1.8rem; font-weight: 700; }
+  .stat-card .lbl {
+    font-size: 0.75rem; color: #94a3b8;
+    text-transform: uppercase; letter-spacing: 0.05em;
+    margin-top: 0.25rem;
+  }
+  table {
+    width: 100%%; border-collapse: collapse;
+    background: #1e293b;
+    border-radius: 8px; overflow: hidden;
+    border: 1px solid #334155;
+  }
+  th {
+    background: #334155; color: #e2e8f0;
+    padding: 0.75rem 1rem; text-align: left;
+    font-size: 0.85rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  td {
+    padding: 0.6rem 1rem;
+    border-bottom: 1px solid #1e293b;
+    font-size: 0.9rem;
+  }
+  tr:hover td { background: #283548; }
+  .badge {
+    display: inline-block; padding: 0.2rem 0.6rem;
+    border-radius: 4px; font-size: 0.8rem;
+    font-weight: 600; white-space: nowrap;
+  }
+  .lexema {
+    font-family: 'Courier New', monospace;
+    color: #cbd5e1;
+  }
+  .linea { color: #64748b; font-weight: 600; }
+  footer {
+    text-align: center; color: #475569;
+    font-size: 0.8rem; margin-top: 2rem;
+  }
+  .textarea-box {
+    width: 100%%; min-height: 180px;
+    background: #1e293b; border: 1px solid #334155;
+    border-radius: 8px; padding: 1rem;
+    font-family: 'Courier New', monospace;
+    font-size: 0.95rem; line-height: 1.6;
+    color: #e2e8f0; resize: vertical; outline: none;
+  }
+  .btn {
+    color: #fff; border: none; border-radius: 8px;
+    padding: 0.7rem 2rem; font-size: 1rem; font-weight: 600;
+    cursor: pointer; margin-top: 1rem; transition: opacity 0.2s;
+  }
+  .btn:hover { opacity: 0.85; }
+  .btn:active { transform: scale(0.97); }
+  .btn-limpiar { background: #334155; margin-left: 0.5rem; }
+  .btn-limpiar:hover { background: #3e4b66; }
+  .result-area { margin-top: 1.5rem; }
+  .hint { color: #64748b; font-size: 0.85rem; margin-top: 0.5rem; }
+  .nav-links { margin-bottom: 1rem; }
+  .nav-link {
+    display: inline-block; text-decoration: none;
+    font-size: 0.9rem; margin-right: 1rem;
+    padding: 0.3rem 0.8rem; border-radius: 6px;
+    border: 1px solid #334155; background: #1e293b;
+  }
+  .nav-link:hover { background: #283548; }
+  .grammar-box {
+    background: #1e293b; border: 1px solid #334155;
+    border-radius: 8px; padding: 1.25rem;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem; line-height: 1.8; color: #cbd5e1;
+  }
+  .grammar-box .prod { font-weight: 600; }
+  .grammar-box .term { color: #38bdf8; }
+  @media (max-width: 640px) {
+    header h1 { font-size: 1.5rem; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    th, td { padding: 0.5rem 0.6rem; font-size: 0.8rem; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Analizador Sintactico - Procesador 8086</h1>
+    <p>Bloque estatico predefinido</p>
+  </header>
+  <div class="nav-links">
+    <a class="nav-link" href="resultado_lexico.html">Lexico</a>
+    <a class="nav-link sint" href="#">Sintactico</a>
+    <a class="nav-link" href="resultado_semantico.html">Semantico</a>
+  </div>
+  <div class="section">
+    <div class="section-title">Codigo de Entrada</div>
+    <div class="input-box">ADD AL, BH
+SUB AH, BL
+INC AL 
+DEC BH
+ADD BL, CH
+SUB CH, DL 
+INC DL
+DEC AL
+ADD AH, BL
+SUB BL, AL
+</div>
+  </div>
+  <div class="section">
+    <div class="section-title">Gramatica Definida</div>
+    <div class="grammar-box">
+      <span class="prod">instruccion</span> &rarr; <span class="term">ADD</span> <span class="prod">registro</span> <span class="term">,</span> <span class="prod">registro</span><br>
+      <span class="prod">instruccion</span> &rarr; <span class="term">SUB</span> <span class="prod">registro</span> <span class="term">,</span> <span class="prod">registro</span><br>
+      <span class="prod">instruccion</span> &rarr; <span class="term">INC</span> <span class="prod">registro</span><br>
+      <span class="prod">instruccion</span> &rarr; <span class="term">DEC</span> <span class="prod">registro</span><br>
+      <span class="prod">registro</span> &rarr; <span class="term">AL | AH | BL | BH | CL | CH | DL | DH</span>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title">Resumen del Analisis</div>
+    <div class="stats">
+      <div class="stat-card stat-ok"><div class="num">10</div><div class="lbl">Correctas</div></div>
+      <div class="stat-card stat-err"><div class="num">0</div><div class="lbl">Con Error</div></div>
+      <div class="stat-card stat-tot"><div class="num">10</div><div class="lbl">Total Lineas</div></div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title">Tabla de Resultados Sintacticos</div>
+    <table>
+      <thead>
+        <tr><th>Linea</th><th>Resultado</th><th>Instruccion</th><th>Descripcion</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="linea">1</td><td><span class="badge-ok">OK</span></td><td class="instr">ADD AL , BH</td><td class="desc-ok">Sintaxis correcta: ADD AL, BH</td></tr>
+        <tr><td class="linea">2</td><td><span class="badge-ok">OK</span></td><td class="instr">SUB AH , BL</td><td class="desc-ok">Sintaxis correcta: SUB AH, BL</td></tr>
+        <tr><td class="linea">3</td><td><span class="badge-ok">OK</span></td><td class="instr">INC AL</td><td class="desc-ok">Sintaxis correcta: INC AL</td></tr>
+        <tr><td class="linea">4</td><td><span class="badge-ok">OK</span></td><td class="instr">DEC BH</td><td class="desc-ok">Sintaxis correcta: DEC BH</td></tr>
+        <tr><td class="linea">5</td><td><span class="badge-ok">OK</span></td><td class="instr">ADD BL , CH</td><td class="desc-ok">Sintaxis correcta: ADD BL, CH</td></tr>
+        <tr><td class="linea">6</td><td><span class="badge-ok">OK</span></td><td class="instr">SUB CH , DL</td><td class="desc-ok">Sintaxis correcta: SUB CH, DL</td></tr>
+        <tr><td class="linea">7</td><td><span class="badge-ok">OK</span></td><td class="instr">INC DL</td><td class="desc-ok">Sintaxis correcta: INC DL</td></tr>
+        <tr><td class="linea">8</td><td><span class="badge-ok">OK</span></td><td class="instr">DEC AL</td><td class="desc-ok">Sintaxis correcta: DEC AL</td></tr>
+        <tr><td class="linea">9</td><td><span class="badge-ok">OK</span></td><td class="instr">ADD AH , BL</td><td class="desc-ok">Sintaxis correcta: ADD AH, BL</td></tr>
+        <tr><td class="linea">10</td><td><span class="badge-ok">OK</span></td><td class="instr">SUB BL , AL</td><td class="desc-ok">Sintaxis correcta: SUB BL, AL</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="section">
+    <div class="section-title">Modo Personalizado - Escriba su propio bloque</div>
+    <p class="hint">Instrucciones validas: ADD reg, reg | SUB reg, reg | INC reg | DEC reg. Cualquier otra sintaxis se marcara como ERROR.</p>
+    <textarea class="textarea-box" id="entradaUsuario" placeholder="Ej: ADD AL, BH"></textarea>
+    <div>
+      <button class="btn" onclick="ejecutarSintactico()">Analizar Sintaxis</button>
+      <button class="btn btn-limpiar" onclick="limpiar()">Limpiar</button>
+    </div>
+    <div class="result-area" id="resultadoUsuario">
+      <p class="hint">Presione "Analizar Sintaxis" para ver los resultados.</p>
+    </div>
+  </div>
+  <footer>Analizador Sintactico 8086 - Generado automaticamente desde C</footer>
+</div>
+<script>
+const instrucciones = ['ADD','SUB','INC','DEC'];
+const registros8 = ['AL','AH','BL','BH','CL','CH','DL','DH'];
+const nombreTipoToken = ['INSTRUCCION','REGISTRO 8 BITS','COMA','ESPACIO','DESCONOCIDO','FIN DE LINEA'];
+const claseCss = ['tok-inst','tok-reg','tok-coma','tok-esp','tok-unk','tok-fin'];
+
+function esInstruccion(p) { return instrucciones.indexOf(p) !== -1; }
+function esRegistro8(p) { return registros8.indexOf(p) !== -1; }
+function esLetra(c) { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'); }
+function escaparHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function analizarLexico(entrada) {
+    const tokens = [];
+    let i = 0, linea = 1;
+    let estado = 0;
+    let palabra = '', palLen = 0;
+    while (i < entrada.length) {
+        const c = entrada[i];
+        if (estado === 0) {
+            if (c === ' ' || c === '\t') {
+                tokens.push({tipo:3, lexema:' ', linea:linea});
+            } else if (c === ',') {
+                tokens.push({tipo:2, lexema:',', linea:linea});
+            } else if (c === '\n') {
+                tokens.push({tipo:5, lexema:'\\n', linea:linea});
+                linea++;
+            } else if (c === '\r') {
+            } else if (esLetra(c)) {
+                palabra = c.toUpperCase(); palLen = 1; estado = 1;
+            } else {
+                const hex = c.charCodeAt(0).toString(16).toUpperCase().padStart(2,'0');
+                tokens.push({tipo:4, lexema:"'" + c + "' (0x" + hex + ")", linea:linea});
+            }
+        } else {
+            if (esLetra(c)) {
+                if (palLen < 31) { palabra += c.toUpperCase(); palLen++; }
+            } else {
+                let tipo;
+                if (esInstruccion(palabra)) tipo = 0;
+                else if (esRegistro8(palabra)) tipo = 1;
+                else tipo = 4;
+                tokens.push({tipo:tipo, lexema:palabra, linea:linea});
+                estado = 0; i--;
+            }
+        }
+        i++;
+    }
+    if (estado === 1) {
+        let tipo;
+        if (esInstruccion(palabra)) tipo = 0;
+        else if (esRegistro8(palabra)) tipo = 1;
+        else tipo = 4;
+        tokens.push({tipo:tipo, lexema:palabra, linea:linea});
+    }
+    return tokens;
+}
+function analizarSintactico(tokens) {
+    const resultados = [];
+    let k = 0;
+    while (k < tokens.length) {
+        const lineaActual = tokens[k].linea;
+        const sig = [];
+        while (k < tokens.length && tokens[k].linea === lineaActual) {
+            if (tokens[k].tipo !== 3 && tokens[k].tipo !== 5) sig.push(tokens[k]);
+            k++;
+        }
+        let instr = '';
+        for (let j = 0; j < sig.length; j++) {
+            if (j > 0) instr += ' ';
+            instr += sig[j].lexema;
+        }
+        let correcto = false, mensaje = '';
+        if (sig.length === 0) {
+            mensaje = 'Linea vacia - no hay instruccion';
+        } else if (sig[0].tipo !== 0) {
+            mensaje = "Error: se esperaba una INSTRUCCION al inicio, se encontro '" + sig[0].lexema + "' (" + nombreTipoToken[sig[0].tipo] + ")";
+        } else if (sig[0].lexema === 'ADD' || sig[0].lexema === 'SUB') {
+            if (sig.length !== 4) {
+                mensaje = 'Error: ' + sig[0].lexema + ' requiere 2 operandos - se encontraron ' + sig.length + ' tokens';
+            } else if (sig[1].tipo !== 1) {
+                mensaje = "Error: se esperaba un REGISTRO, se encontro '" + sig[1].lexema + "'";
+            } else if (sig[2].tipo !== 2) {
+                mensaje = "Error: se esperaba una COMA, se encontro '" + sig[2].lexema + "'";
+            } else if (sig[3].tipo !== 1) {
+                mensaje = "Error: se esperaba un REGISTRO, se encontro '" + sig[3].lexema + "'";
+            } else {
+                correcto = true;
+                mensaje = 'Sintaxis correcta: ' + sig[0].lexema + ' ' + sig[1].lexema + ', ' + sig[3].lexema;
+            }
+        } else if (sig[0].lexema === 'INC' || sig[0].lexema === 'DEC') {
+            if (sig.length !== 2) {
+                mensaje = 'Error: ' + sig[0].lexema + ' requiere 1 operando - se encontraron ' + sig.length + ' tokens';
+            } else if (sig[1].tipo !== 1) {
+                mensaje = "Error: se esperaba un REGISTRO, se encontro '" + sig[1].lexema + "'";
+            } else {
+                correcto = true;
+                mensaje = 'Sintaxis correcta: ' + sig[0].lexema + ' ' + sig[1].lexema;
+            }
+        } else {
+            mensaje = "Error: instruccion '" + sig[0].lexema + "' no reconocida";
+        }
+        resultados.push({linea:lineaActual, correcto:correcto, mensaje:mensaje, instruccion:instr});
+    }
+    return resultados;
+}
+function ejecutarSintactico() {
+    const texto = document.getElementById('entradaUsuario').value;
+    const tokens = analizarLexico(texto);
+    const resultados = analizarSintactico(tokens);
+    const cont = document.getElementById('resultadoUsuario');
+    if (resultados.length === 0) {
+        cont.innerHTML = '<p class="hint">No se encontraron lineas.</p>';
+        return;
+    }
+    let ok = 0, err = 0;
+    for (let j = 0; j < resultados.length; j++) {
+        if (resultados[j].correcto) ok++; else err++;
+    }
+    let html = '<div class="section"><div class="section-title">Resumen</div>';
+    html += '<div class="stats">';
+    html += '<div class="stat-card stat-ok"><div class="num">' + ok + '</div><div class="lbl">Correctas</div></div>';
+    html += '<div class="stat-card stat-err"><div class="num">' + err + '</div><div class="lbl">Con Error</div></div>';
+    html += '<div class="stat-card stat-tot"><div class="num">' + resultados.length + '</div><div class="lbl">Total</div></div>';
+    html += '</div></div>';
+    html += '<div class="section"><div class="section-title">Resultados</div>';
+    html += '<table><thead><tr><th>Linea</th><th>Resultado</th><th>Instruccion</th><th>Descripcion</th></tr></thead><tbody>';
+    for (let j = 0; j < resultados.length; j++) {
+        const r = resultados[j];
+        html += '<tr><td class="linea">' + r.linea + '</td>';
+        html += '<td><span class="badge-' + (r.correcto ? 'ok' : 'err') + '">' + (r.correcto ? 'OK' : 'ERROR') + '</span></td>';
+        html += '<td class="instr">' + escaparHtml(r.instruccion) + '</td>';
+        html += '<td class="desc-' + (r.correcto ? 'ok' : 'err') + '">' + escaparHtml(r.mensaje) + '</td></tr>';
+    }
+    html += '</tbody></table></div>';
+    cont.innerHTML = html;
+}
+function limpiar() {
+    document.getElementById('entradaUsuario').value = '';
+    document.getElementById('resultadoUsuario').innerHTML = '<p class="hint">Presione \"Analizar Sintaxis\" para ver los resultados.</p>';
+}
+</script>
+</body>
+</html>

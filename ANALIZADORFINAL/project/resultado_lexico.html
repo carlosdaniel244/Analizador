@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Analizador Lexico - Procesador 8086</title>
+<style>
+  header h1 {
+    background: linear-gradient(135deg, #38bdf8, #0ea5e9);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .section-title { color: #38bdf8; }
+  .stat-inst .num { color: #38bdf8; }
+  .stat-reg  .num { color: #34d399; }
+  .stat-coma .num { color: #fbbf24; }
+  .stat-esp  .num { color: #94a3b8; }
+  .stat-fin  .num { color: #f87171; }
+  .stat-unk  .num { color: #f87171; }
+  .stat-tot  .num { color: #c084fc; }
+  .tok-inst { background: rgba(56,189,248,0.15); color: #38bdf8; border: 1px solid rgba(56,189,248,0.3); }
+  .tok-reg  { background: rgba(52,211,153,0.15); color: #34d399; border: 1px solid rgba(52,211,153,0.3); }
+  .tok-coma { background: rgba(251,191,36,0.15); color: #fbbf24; border: 1px solid rgba(251,191,36,0.3); }
+  .tok-esp  { background: rgba(148,163,184,0.15); color: #94a3b8; border: 1px solid rgba(148,163,184,0.3); }
+  .tok-fin  { background: rgba(248,113,113,0.15); color: #f87171; border: 1px solid rgba(248,113,113,0.3); }
+  .tok-unk  { background: rgba(248,113,113,0.15); color: #f87171; border: 1px solid rgba(248,113,113,0.3); }
+  .btn { background: linear-gradient(135deg, #0ea5e9, #38bdf8); }
+  .textarea-box:focus { border-color: #38bdf8; }
+  .nav-link.lex { background: #0ea5e9; color: #fff; border-color: #0ea5e9; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: #0f172a;
+    color: #e2e8f0;
+    min-height: 100vh;
+    padding: 2rem 1rem;
+  }
+  .container { max-width: 960px; margin: 0 auto; }
+  header { text-align: center; margin-bottom: 2rem; }
+  header h1 {
+    font-size: 2rem; font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+  header p { color: #94a3b8; font-size: 0.95rem; }
+  .section { margin-bottom: 2rem; }
+  .section-title {
+    font-size: 1.1rem; font-weight: 600;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #1e293b;
+  }
+  .input-box {
+    background: #1e293b; border: 1px solid #334155;
+    border-radius: 8px; padding: 1.25rem;
+    font-family: 'Courier New', monospace;
+    font-size: 0.95rem; line-height: 1.8;
+    white-space: pre-wrap; color: #cbd5e1;
+  }
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 1rem; margin-bottom: 2rem;
+  }
+  .stat-card {
+    background: #1e293b; border: 1px solid #334155;
+    border-radius: 8px; padding: 1rem;
+    text-align: center;
+  }
+  .stat-card .num { font-size: 1.8rem; font-weight: 700; }
+  .stat-card .lbl {
+    font-size: 0.75rem; color: #94a3b8;
+    text-transform: uppercase; letter-spacing: 0.05em;
+    margin-top: 0.25rem;
+  }
+  table {
+    width: 100%%; border-collapse: collapse;
+    background: #1e293b;
+    border-radius: 8px; overflow: hidden;
+    border: 1px solid #334155;
+  }
+  th {
+    background: #334155; color: #e2e8f0;
+    padding: 0.75rem 1rem; text-align: left;
+    font-size: 0.85rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  td {
+    padding: 0.6rem 1rem;
+    border-bottom: 1px solid #1e293b;
+    font-size: 0.9rem;
+  }
+  tr:hover td { background: #283548; }
+  .badge {
+    display: inline-block; padding: 0.2rem 0.6rem;
+    border-radius: 4px; font-size: 0.8rem;
+    font-weight: 600; white-space: nowrap;
+  }
+  .lexema {
+    font-family: 'Courier New', monospace;
+    color: #cbd5e1;
+  }
+  .linea { color: #64748b; font-weight: 600; }
+  footer {
+    text-align: center; color: #475569;
+    font-size: 0.8rem; margin-top: 2rem;
+  }
+  .textarea-box {
+    width: 100%%; min-height: 180px;
+    background: #1e293b; border: 1px solid #334155;
+    border-radius: 8px; padding: 1rem;
+    font-family: 'Courier New', monospace;
+    font-size: 0.95rem; line-height: 1.6;
+    color: #e2e8f0; resize: vertical; outline: none;
+  }
+  .btn {
+    color: #fff; border: none; border-radius: 8px;
+    padding: 0.7rem 2rem; font-size: 1rem; font-weight: 600;
+    cursor: pointer; margin-top: 1rem; transition: opacity 0.2s;
+  }
+  .btn:hover { opacity: 0.85; }
+  .btn:active { transform: scale(0.97); }
+  .btn-limpiar { background: #334155; margin-left: 0.5rem; }
+  .btn-limpiar:hover { background: #3e4b66; }
+  .result-area { margin-top: 1.5rem; }
+  .hint { color: #64748b; font-size: 0.85rem; margin-top: 0.5rem; }
+  .nav-links { margin-bottom: 1rem; }
+  .nav-link {
+    display: inline-block; text-decoration: none;
+    font-size: 0.9rem; margin-right: 1rem;
+    padding: 0.3rem 0.8rem; border-radius: 6px;
+    border: 1px solid #334155; background: #1e293b;
+  }
+  .nav-link:hover { background: #283548; }
+  .grammar-box {
+    background: #1e293b; border: 1px solid #334155;
+    border-radius: 8px; padding: 1.25rem;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem; line-height: 1.8; color: #cbd5e1;
+  }
+  .grammar-box .prod { font-weight: 600; }
+  .grammar-box .term { color: #38bdf8; }
+  @media (max-width: 640px) {
+    header h1 { font-size: 1.5rem; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    th, td { padding: 0.5rem 0.6rem; font-size: 0.8rem; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Analizador Lexico - Procesador 8086</h1>
+    <p>Bloque estatico predefinido</p>
+  </header>
+  <div class="nav-links">
+    <a class="nav-link lex" href="#">Lexico</a>
+    <a class="nav-link" href="resultado_sintactico.html">Sintactico</a>
+    <a class="nav-link" href="resultado_semantico.html">Semantico</a>
+  </div>
+  <div class="section">
+    <div class="section-title">Codigo de Entrada</div>
+    <div class="input-box">ADD AL, BH
+SUB AH, BL
+INC AL 
+DEC BH
+ADD BL, CH
+SUB CH, DL 
+INC DL
+DEC AL
+ADD AH, BL
+SUB BL, AL
+</div>
+  </div>
+  <div class="section">
+    <div class="section-title">Resumen de Tokens</div>
+    <div class="stats">
+      <div class="stat-card stat-inst"><div class="num">10</div><div class="lbl">Instrucciones</div></div>
+      <div class="stat-card stat-reg"><div class="num">16</div><div class="lbl">Registros 8b</div></div>
+      <div class="stat-card stat-coma"><div class="num">6</div><div class="lbl">Comas</div></div>
+      <div class="stat-card stat-esp"><div class="num">18</div><div class="lbl">Espacios</div></div>
+      <div class="stat-card stat-fin"><div class="num">10</div><div class="lbl">Fin de Linea</div></div>
+      <div class="stat-card stat-unk"><div class="num">0</div><div class="lbl">Desconocidos</div></div>
+      <div class="stat-card stat-tot"><div class="num">60</div><div class="lbl">Total Tokens</div></div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title">Tabla de Tokens</div>
+    <table>
+      <thead>
+        <tr><th>Linea</th><th>Tipo de Token</th><th>Lexema</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="linea">1</td><td><span class="badge tok-inst">INSTRUCCION</span></td><td class="lexema">&quot;ADD&quot;</td></tr>
+        <tr><td class="linea">1</td><td><span class="badge tok-esp">ESPACIO</span></td><td class="lexema">&quot; &quot;</td></tr>
+        <tr><td class="linea">1</td><td><span class="badge tok-reg">REGISTRO 8 BITS</span></td><td class="lexema">&quot;AL&quot;</td></tr>
+        <tr><td class="linea">1</td><td><span class="badge tok-coma">COMA</span></td><td class="lexema">&quot;,&quot;</td></tr>
+        <tr><td class="linea">1</td><td><span class="badge tok-esp">ESPACIO</span></td><td class="lexema">&quot; &quot;</td></tr>
+        <tr><td class="linea">1</td><td><span class="badge tok-reg">REGISTRO 8 BITS</span></td><td class="lexema">&quot;BH&quot;</td></tr>
+        <tr><td class="linea">1</td><td><span class="badge tok-fin">FIN DE LINEA</span></td><td class="lexema">&quot;\n&quot;</td></tr>
+        <tr><td class="linea">2</td><td><span class="badge tok-inst">INSTRUCCION</span></td><td class="lexema">&quot;SUB&quot;</td></tr>
+        <tr><td class="linea">2</td><td><span class="badge tok-esp">ESPACIO</span></td><td class="lexema">&quot; &quot;</td></tr>
+        <tr><td class="linea">2</td><td><span class="badge tok-reg">REGISTRO 8 BITS</span></td><td class="lexema">&quot;AH&quot;</td></tr>
+        <tr><td class="linea">2</td><td><span class="badge tok-coma">COMA</span></td><td class="lexema">&quot;,&quot;</td></tr>
+        <tr><td class="linea">2</td><td><span class="badge tok-esp">ESPACIO</span></td><td class="lexema">&quot; &quot;</td></tr>
+        <tr><td class="linea">2</td><td><span class="badge tok-reg">REGISTRO 8 BITS</span></td><td class="lexema">&quot;BL&quot;</td></tr>
+        <tr><td class="linea">2</td><td><span class="badge tok-fin">FIN DE LINEA</span></td><td class="lexema">&quot;\n&quot;</td></tr>
+        <tr><td class="linea">3</td><td><span class="badge tok-inst">INSTRUCCION</span></td><td class="lexema">&quot;INC&quot;</td></tr>
+        <tr><td class="linea">3</td><td><span class="badge tok-esp">ESPACIO</span></td><td class="lexema">&quot; &quot;</td></tr>
+        <tr><td class="linea">3</td><td><span class="badge tok-reg">REGISTRO 8 BITS</span></td><td class="lexema">&quot;AL&quot;</td></tr>
+        <tr><td class="linea">3</td><td><span class="badge tok-esp">ESPACIO</span></td><td class="lexema">&quot; &quot;</td></tr>
+        <tr><td class="linea">3</td><td><span class="badge tok-fin">FIN DE LINEA</span></td><td class="lexema">&quot;\n&quot;</td></tr>
+        <tr><td class="linea">4</td><td><span class="badge tok-inst">INSTRUCCION</span></td><td class="lexema">&quot;DEC&quot;</td></tr>
+        <tr><td class="linea">4</td><td><span class="badge tok-esp">ESPACIO</span></td><td class="lexema">&quot; &quot;</td></tr>
+        <tr><td class="linea">4</td><td><span class="badge tok-reg">REGISTRO 8 BITS</span></td><td class="lexema">&quot;BH&quot;</td></tr>
+        <tr><td class="linea">4</td><td><span class="badge tok-fin">FIN DE LINEA</span></td><td class="lexema">&quot;\n&quot;</td></tr>
+        <tr><td class="linea">5</td><td><span class="badge tok-inst">INSTRUCCION</span></td><td class="lexema">&quot;ADD&quot;</td></tr>
+        <tr><td class="linea">5</td><td><span class="badge tok-esp">ESPACIO</span></td><td class="lexema">&quot; &quot;</td></tr>
+        <tr><td class="linea">5</td><td><span class="badge tok-reg">REGISTRO 8 BITS</span></td><td class="lexema">&quot;BL&quot;</td></tr>
+        <tr><td class="linea">5</td><td><span class="badge tok-coma">COMA</span></td><td class="lexema">&quot;,&quot;</td></tr>
+        <tr><td class="linea">5</td><td><span class="badge tok-esp">ESPACIO</span></td><td class="lexema">&quot; &quot;</td></tr>
+        <tr><td class="linea">5</td><td><span class="badge tok-reg">REGISTRO 8 BITS</span></td><td class="lexema">&quot;CH&quot;</td></tr>
+        <tr><td class="linea">5</td><td><span class="badge tok-fin">FIN DE LINEA</span></td><td class="lexema">&quot;\n&quot;</td></tr>
+        <tr><td class="linea">6</td><td><span class="badge tok-inst">INSTRUCCION</span></td><td class="lexema">&quot;SUB&quot;</td></tr>
+        <tr><td class="linea">6</td><td><span class="badge tok-esp">ESPACIO</span></td><td class="lexema">&quot; &quot;</td></tr>
+        <tr><td class="linea">6</td><td><span class="badge tok-reg">REGISTRO 8 BITS</span></td><td class="lexema">&quot;CH&quot;</td></tr>
+        <tr><td class="linea">6</td><td><span class="badge tok-coma">COMA</span></td><td class="lexema">&quot;,&quot;</td></tr>
+        <tr><td class="linea">6</td><td><span class="badge tok-esp">ESPACIO</span></td><td class="lexema">&quot; &quot;</td></tr>
+        <tr><td class="linea">6</td><td><span class="badge tok-reg">REGISTRO 8 BITS</span></td><td class="lexema">&quot;DL&quot;</td></tr>
+        <tr><td class="linea">6</td><td><span class="badge tok-esp">ESPACIO</span></td><td class="lexema">&quot; &quot;</td></tr>
+        <tr><td class="linea">6</td><td><span class="badge tok-fin">FIN DE LINEA</span></td><td class="lexema">&quot;\n&quot;</td></tr>
+        <tr><td class="linea">7</td><td><span class="badge tok-inst">INSTRUCCION</span></td><td class="lexema">&quot;INC&quot;</td></tr>
+        <tr><td class="linea">7</td><td><span class="badge tok-esp">ESPACIO</span></td><td class="lexema">&quot; &quot;</td></tr>
+        <tr><td class="linea">7</td><td><span class="badge tok-reg">REGISTRO 8 BITS</span></td><td class="lexema">&quot;DL&quot;</td></tr>
+        <tr><td class="linea">7</td><td><span class="badge tok-fin">FIN DE LINEA</span></td><td class="lexema">&quot;\n&quot;</td></tr>
+        <tr><td class="linea">8</td><td><span class="badge tok-inst">INSTRUCCION</span></td><td class="lexema">&quot;DEC&quot;</td></tr>
+        <tr><td class="linea">8</td><td><span class="badge tok-esp">ESPACIO</span></td><td class="lexema">&quot; &quot;</td></tr>
+        <tr><td class="linea">8</td><td><span class="badge tok-reg">REGISTRO 8 BITS</span></td><td class="lexema">&quot;AL&quot;</td></tr>
+        <tr><td class="linea">8</td><td><span class="badge tok-fin">FIN DE LINEA</span></td><td class="lexema">&quot;\n&quot;</td></tr>
+        <tr><td class="linea">9</td><td><span class="badge tok-inst">INSTRUCCION</span></td><td class="lexema">&quot;ADD&quot;</td></tr>
+        <tr><td class="linea">9</td><td><span class="badge tok-esp">ESPACIO</span></td><td class="lexema">&quot; &quot;</td></tr>
+        <tr><td class="linea">9</td><td><span class="badge tok-reg">REGISTRO 8 BITS</span></td><td class="lexema">&quot;AH&quot;</td></tr>
+        <tr><td class="linea">9</td><td><span class="badge tok-coma">COMA</span></td><td class="lexema">&quot;,&quot;</td></tr>
+        <tr><td class="linea">9</td><td><span class="badge tok-esp">ESPACIO</span></td><td class="lexema">&quot; &quot;</td></tr>
+        <tr><td class="linea">9</td><td><span class="badge tok-reg">REGISTRO 8 BITS</span></td><td class="lexema">&quot;BL&quot;</td></tr>
+        <tr><td class="linea">9</td><td><span class="badge tok-fin">FIN DE LINEA</span></td><td class="lexema">&quot;\n&quot;</td></tr>
+        <tr><td class="linea">10</td><td><span class="badge tok-inst">INSTRUCCION</span></td><td class="lexema">&quot;SUB&quot;</td></tr>
+        <tr><td class="linea">10</td><td><span class="badge tok-esp">ESPACIO</span></td><td class="lexema">&quot; &quot;</td></tr>
+        <tr><td class="linea">10</td><td><span class="badge tok-reg">REGISTRO 8 BITS</span></td><td class="lexema">&quot;BL&quot;</td></tr>
+        <tr><td class="linea">10</td><td><span class="badge tok-coma">COMA</span></td><td class="lexema">&quot;,&quot;</td></tr>
+        <tr><td class="linea">10</td><td><span class="badge tok-esp">ESPACIO</span></td><td class="lexema">&quot; &quot;</td></tr>
+        <tr><td class="linea">10</td><td><span class="badge tok-reg">REGISTRO 8 BITS</span></td><td class="lexema">&quot;AL&quot;</td></tr>
+        <tr><td class="linea">10</td><td><span class="badge tok-fin">FIN DE LINEA</span></td><td class="lexema">&quot;\n&quot;</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="section">
+    <div class="section-title">Modo Personalizado - Escriba su propio bloque</div>
+    <p class="hint">Instrucciones validas: ADD, SUB, INC, DEC. Registros de 8 bits: AL, AH, BL, BH, CL, CH, DL, DH. Cualquier otro caracter se marcara como DESCONOCIDO.</p>
+    <textarea class="textarea-box" id="entradaUsuario" placeholder="Ej: ADD AL, BH"></textarea>
+    <div>
+      <button class="btn" onclick="ejecutarAnalisis()">Analizar</button>
+      <button class="btn btn-limpiar" onclick="limpiar()">Limpiar</button>
+    </div>
+    <div class="result-area" id="resultadoUsuario">
+      <p class="hint">Presione "Analizar" para ver los tokens.</p>
+    </div>
+  </div>
+  <footer>Analizador Lexico 8086 - Generado automaticamente desde C</footer>
+</div>
+<script>
+const instrucciones = ['ADD','SUB','INC','DEC'];
+const registros8 = ['AL','AH','BL','BH','CL','CH','DL','DH'];
+const nombreTipoToken = ['INSTRUCCION','REGISTRO 8 BITS','COMA','ESPACIO','DESCONOCIDO','FIN DE LINEA'];
+const claseCss = ['tok-inst','tok-reg','tok-coma','tok-esp','tok-unk','tok-fin'];
+
+function esInstruccion(p) { return instrucciones.indexOf(p) !== -1; }
+function esRegistro8(p) { return registros8.indexOf(p) !== -1; }
+function esLetra(c) { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'); }
+function escaparHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function analizarLexico(entrada) {
+    const tokens = [];
+    let i = 0, linea = 1;
+    let estado = 0;
+    let palabra = '', palLen = 0;
+    while (i < entrada.length) {
+        const c = entrada[i];
+        if (estado === 0) {
+            if (c === ' ' || c === '\t') {
+                tokens.push({tipo:3, lexema:' ', linea:linea});
+            } else if (c === ',') {
+                tokens.push({tipo:2, lexema:',', linea:linea});
+            } else if (c === '\n') {
+                tokens.push({tipo:5, lexema:'\\n', linea:linea});
+                linea++;
+            } else if (c === '\r') {
+            } else if (esLetra(c)) {
+                palabra = c.toUpperCase(); palLen = 1; estado = 1;
+            } else {
+                const hex = c.charCodeAt(0).toString(16).toUpperCase().padStart(2,'0');
+                tokens.push({tipo:4, lexema:"'" + c + "' (0x" + hex + ")", linea:linea});
+            }
+        } else {
+            if (esLetra(c)) {
+                if (palLen < 31) { palabra += c.toUpperCase(); palLen++; }
+            } else {
+                let tipo;
+                if (esInstruccion(palabra)) tipo = 0;
+                else if (esRegistro8(palabra)) tipo = 1;
+                else tipo = 4;
+                tokens.push({tipo:tipo, lexema:palabra, linea:linea});
+                estado = 0; i--;
+            }
+        }
+        i++;
+    }
+    if (estado === 1) {
+        let tipo;
+        if (esInstruccion(palabra)) tipo = 0;
+        else if (esRegistro8(palabra)) tipo = 1;
+        else tipo = 4;
+        tokens.push({tipo:tipo, lexema:palabra, linea:linea});
+    }
+    return tokens;
+}
+function renderResultados(tokens, contenedorId) {
+    const cont = document.getElementById(contenedorId);
+    if (tokens.length === 0) {
+        cont.innerHTML = '<p class="hint">No se encontraron tokens.</p>';
+        return;
+    }
+    const conteo = [0,0,0,0,0,0];
+    let k;
+    for (k = 0; k < tokens.length; k++) conteo[tokens[k].tipo]++;
+    let html = '<div class="section"><div class="section-title">Resumen de Tokens</div>';
+    html += '<div class="stats">';
+    html += '<div class="stat-card stat-inst"><div class="num">'+conteo[0]+'</div><div class="lbl">Instrucciones</div></div>';
+    html += '<div class="stat-card stat-reg"><div class="num">'+conteo[1]+'</div><div class="lbl">Registros 8b</div></div>';
+    html += '<div class="stat-card stat-coma"><div class="num">'+conteo[2]+'</div><div class="lbl">Comas</div></div>';
+    html += '<div class="stat-card stat-esp"><div class="num">'+conteo[3]+'</div><div class="lbl">Espacios</div></div>';
+    html += '<div class="stat-card stat-fin"><div class="num">'+conteo[5]+'</div><div class="lbl">Fin de Linea</div></div>';
+    html += '<div class="stat-card stat-unk"><div class="num">'+conteo[4]+'</div><div class="lbl">Desconocidos</div></div>';
+    html += '<div class="stat-card stat-tot"><div class="num">'+tokens.length+'</div><div class="lbl">Total Tokens</div></div>';
+    html += '</div></div>';
+    html += '<div class="section"><div class="section-title">Tabla de Tokens</div>';
+    html += '<table><thead><tr><th>Linea</th><th>Tipo de Token</th><th>Lexema</th></tr></thead><tbody>';
+    for (k = 0; k < tokens.length; k++) {
+        const t = tokens[k];
+        html += '<tr><td class="linea">'+t.linea+'</td>';
+        html += '<td><span class="badge '+claseCss[t.tipo]+'">'+nombreTipoToken[t.tipo]+'</span></td>';
+        html += '<td class="lexema">&quot;'+escaparHtml(t.lexema)+'&quot;</td></tr>';
+    }
+    html += '</tbody></table></div>';
+    cont.innerHTML = html;
+}
+function ejecutarAnalisis() {
+    const texto = document.getElementById('entradaUsuario').value;
+    const tokens = analizarLexico(texto);
+    renderResultados(tokens, 'resultadoUsuario');
+}
+function limpiar() {
+    document.getElementById('entradaUsuario').value = '';
+    document.getElementById('resultadoUsuario').innerHTML = '<p class="hint">Presione \"Analizar\" para ver los tokens.</p>';
+}
+</script>
+</body>
+</html>
