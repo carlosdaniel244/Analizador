@@ -1,0 +1,8 @@
+{
+  "name": "analizador-lenguajes-automatas-2",
+  "private": true,
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node index.js"
+  }
+}
